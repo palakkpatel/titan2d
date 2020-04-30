@@ -8,11 +8,11 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * Author: 
- * Description: 
+ * Author:
+ * Description:
  *
  *******************************************************************
- * $Id: stats.C 232 2012-03-27 00:33:41Z dkumar $ 
+ * $Id: stats.C 232 2012-03-27 00:33:41Z dkumar $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -566,7 +566,7 @@ void InsanityCheck(ElementsHashTable* El_Table, int nump, int myid, TimeProps *t
     int no_of_buckets = El_Table->get_no_of_buckets();
     vector<HashEntryLine> &bucket=El_Table->bucket;
     tivector<Element> &elenode_=El_Table->elenode_;
-    
+
     //@ElementsBucketDoubleLoop
     for(int ibuck = 0; ibuck < no_of_buckets; ibuck++)
     {
