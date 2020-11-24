@@ -2155,7 +2155,7 @@ void Element::xdirflux(MatProps* matprops_ptr2, Integrator *integrator, double d
     #ifdef STOPCRIT_CHANGE_FLUX
         else if(stoppedflags()==2)
         {
-            printf("xdirflux case 2 \n");
+            //printf("xdirflux case 2 ");
             //state variables
             hfv[0][0]=state_vars(0)+d_state_vars(0)*dz;
             hfv[0][1]=hfv[0][2]=0.0;
@@ -2742,13 +2742,13 @@ void riemannflux(const ElementType elementType,double hfvl[3][MAX_NUM_STATE_VARS
         }
         
         if(sl >= 0.0)
-            for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+            for(ivar = 0; ivar < 3; ivar++)
                 flux[ivar] = hfvl[1][ivar];
         else if(sr <= 0.0)
-            for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+            for(ivar = 0; ivar < 3; ivar++)
                 flux[ivar] = hfvr[1][ivar];
         else
-            for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+            for(ivar = 0; ivar < 3; ivar++)
                 flux[ivar] = (sr * hfvl[1][ivar] - sl * hfvr[1][ivar] + sl * sr * (hfvr[0][ivar] - hfvl[0][ivar]))
                         / (sr - sl);
 
