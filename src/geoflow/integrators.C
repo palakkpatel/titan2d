@@ -634,6 +634,7 @@ void Integrator_SinglePhase_Coulomb::predictor()
                     influx[2]);
 
             //the gravity force in the y direction
+            
             forcegrav = g[1] * h[ndx];
 
             //the internal friction force
