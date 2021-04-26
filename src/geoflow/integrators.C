@@ -189,7 +189,13 @@ void Integrator::step()
 
     //-------------------go through all the elements of the subdomain and
     //-------------------calculate the state variables at time .5*delta_t
-    if(order!=1)predictor();
+    double outflow = 0.0;
+
+    ElemProp.calc_edge_states(matprops_ptr, timeprops_ptr, this, myid, order, outflow);
+    PROFILING3_STOPADD_RESTART(step_calc_edge_states,pt_start);
+
+    //if(order!=1)predictor();
+    predictor();
     PROFILING3_STOPADD_RESTART(step_predict,pt_start);
     TIMING1_STOPADD(predictorStepTime, t_start);
     /* finished predictor step */
@@ -200,7 +206,8 @@ void Integrator::step()
 
     /* calculate the slopes for the new (half-time step) state variables */
     TIMING1_START(t_start);
-    if(order!=1)ElemProp.slopes(matprops_ptr);
+    //if(order!=1)ElemProp.slopes(matprops_ptr);
+    ElemProp.slopes(matprops_ptr);
     TIMING1_STOPADD(slopesCalcTime, t_start);
     PROFILING3_STOPADD_RESTART(step_slopesCalc,pt_start);
     // in TWO PHASES #endif  //SECOND_ORDER
@@ -218,7 +225,7 @@ void Integrator::step()
     /*
      * calculate edge states
      */
-    double outflow = 0.0;  //shouldn't need the =0.0 assignment but just being cautious.
+    outflow = 0.0;  //shouldn't need the =0.0 assignment but just being cautious.
     //printf("step: before calc_edge_states\n"); fflush(stdout);
     ElemProp.calc_edge_states(matprops_ptr, timeprops_ptr, this, myid, order, outflow);
     PROFILING3_STOPADD_RESTART(step_calc_edge_states,pt_start);
@@ -1385,21 +1392,22 @@ void Integrator_SinglePhase_Voellmy_Salm::print0(int spaces)
 }
 void Integrator_SinglePhase_Voellmy_Salm::predictor()
 {
-}
+    //if(order == 1)return;
 
-void Integrator_SinglePhase_Voellmy_Salm::corrector()
-{
-    //for comparison of magnitudes of forces in slumping piles
+    double inv_xi= 1.0/xi;
+
     double m_forceint = 0.0;
     double m_forcebed = 0.0;
     double m_eroded = 0.0;
     double m_deposited = 0.0;
     double m_realvolume = 0.0;
 
-    double inv_xi= 1.0/xi;
+
+    //printf("xi = %lf\n", xi);
 
     //convinience ref
     tivector<double> *g=gravity_;
+    printf("Calculating Predictor....\n");
 
     #pragma omp parallel for schedule(dynamic,TITAN2D_DINAMIC_CHUNK) \
         reduction(+: m_forceint, m_forcebed, m_eroded, m_deposited, m_realvolume)
@@ -1407,11 +1415,8 @@ void Integrator_SinglePhase_Voellmy_Salm::corrector()
     {
         if(adapted_[ndx] <= 0)continue;//if this element does not belong on this processor don't involve!!!
         //if first order states was not updated as there is no predictor
-        if(order==1)
-        {
-            for (int i = 0; i < NUM_STATE_VARS; i++)
-                prev_state_vars_[i][ndx]=state_vars_[i][ndx];
-        }
+        for (int i = 0; i < NUM_STATE_VARS; i++)
+            prev_state_vars_[i][ndx]=state_vars_[i][ndx];
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
         double elem_forceint;
@@ -1537,8 +1542,18 @@ void Integrator_SinglePhase_Voellmy_Salm::corrector()
             	forcebedx_curv = unitvx * mu * VxVy[0] * hVx[ndx] * curvature_[0][ndx];
             }
 
+            //printf("focebedx_curv =  %lf\n", forcebedx_curv);
+          //  forcebedx_curv = 0;
+            
+
+
+
             // The velocity-dependent resisting force in x direction
             forceintx = unitvx * speed_squared * inv_xi / scale_.epsilon;
+
+            //printf("force int = %lf force bed = %lf\n", forceintx, forcebedx);
+
+            //printf("foceintx =  %lf\n", forceintx);
 
             //STOPPING CRITERIA
             inertial_x = fabs( Ustore[1] + dt * forcegravx );
@@ -1562,6 +1577,8 @@ void Integrator_SinglePhase_Voellmy_Salm::corrector()
             	forcebedy = unitvy * mu * g[2][ndx] * h[ndx];
             	forcebedy_curv = unitvy * mu * VxVy[1] * hVy[ndx] * curvature_[1][ndx];
             }
+
+           // forcebedy_curv = 0;
 
             // The velocity-dependent resisting force in y direction
             forceinty = unitvy * speed_squared * inv_xi / scale_.epsilon;
@@ -1603,6 +1620,263 @@ void Integrator_SinglePhase_Voellmy_Salm::corrector()
         if(stoppedflags_[ndx])
             elem_eroded = 0.0;
 
+        //elements_[ndx].calc_shortspeed(1.0 / dt);
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        m_forceint += fabs(elem_forceint);
+        m_forcebed += fabs(elem_forcebed);
+        m_realvolume += dxdy * h[ndx];
+        m_eroded += elem_eroded;
+        m_deposited += elem_deposited;
+
+		// apply bc's
+		for (int j = 0; j < 4; j++)
+			if (neigh_proc_[j][ndx] == INIT)   // this is a boundary!
+				for (int k = 0; k < NUM_STATE_VARS; k++)
+					state_vars_[k][ndx] = 0.0;
+	}
+
+    /*
+	forceint = m_forceint;
+	forcebed = m_forcebed;
+	eroded = m_eroded;
+	deposited = m_deposited;
+	realvolume = m_realvolume;*/
+}
+
+void Integrator_SinglePhase_Voellmy_Salm::corrector()
+{
+    //for comparison of magnitudes of forces in slumping piles
+    double m_forceint = 0.0;
+    double m_forcebed = 0.0;
+    double m_eroded = 0.0;
+    double m_deposited = 0.0;
+    double m_realvolume = 0.0;
+
+    double inv_xi= 1.0/xi;
+
+    //printf("xi = %lf\n", xi);
+
+    //convinience ref
+    tivector<double> *g=gravity_;
+
+    printf("Calculating Corrector....\n");
+
+    #pragma omp parallel for schedule(dynamic,TITAN2D_DINAMIC_CHUNK) \
+        reduction(+: m_forceint, m_forcebed, m_eroded, m_deposited, m_realvolume)
+    for(ti_ndx_t ndx = 0; ndx < elements_.size(); ndx++)
+    {
+        if(adapted_[ndx] <= 0)continue;//if this element does not belong on this processor don't involve!!!
+        //if first order states was not updated as there is no predictor
+        double U_OLD[3];
+        
+        for (int i = 0; i < NUM_STATE_VARS; i++){
+            U_OLD[i]= prev_state_vars_[i][ndx];
+            prev_state_vars_[i][ndx]=state_vars_[i][ndx];
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        double elem_forceint;
+        double elem_forcebed;
+        double elem_eroded;
+        double elem_deposited;
+
+        double dxdy = dx_[0][ndx] * dx_[1][ndx];
+        double dtdx = dt / dx_[0][ndx];
+        double dtdy = dt / dx_[1][ndx];
+
+        int xp = positive_x_side_[ndx];
+        int yp = (xp + 1) % 4;
+        int xm = (xp + 2) % 4;
+        int ym = (xp + 3) % 4;
+
+        int ivar, j, k;
+
+        double fluxxp[NUM_STATE_VARS], fluxyp[NUM_STATE_VARS];
+        double fluxxm[NUM_STATE_VARS], fluxym[NUM_STATE_VARS];
+
+
+        ti_ndx_t nxp = node_key_ndx_[xp + 4][ndx];
+        for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+            fluxxp[ivar] = node_flux_[ivar][nxp];
+
+        ti_ndx_t nyp = node_key_ndx_[yp + 4][ndx];
+        for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+            fluxyp[ivar] = node_flux_[ivar][nyp];
+
+        ti_ndx_t nxm = node_key_ndx_[xm + 4][ndx];
+        for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+            fluxxm[ivar] = node_flux_[ivar][nxm];
+
+        ti_ndx_t nym = node_key_ndx_[ym + 4][ndx];
+        for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+            fluxym[ivar] = node_flux_[ivar][nym];
+
+
+        double VxVy[2];
+        if(h[ndx] > tiny)
+        {
+            VxVy[0] = hVx[ndx] / h[ndx];
+            VxVy[1] = hVy[ndx] / h[ndx];
+        }
+        else
+        {
+            VxVy[0] = VxVy[1] = 0.0;
+        }
+
+        //elements_[ndx].convect_dryline(VxVy[0], VxVy[1], dt); //this is necessary
+
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        //corrector itself
+        double speed, speed_squared;
+        double forceintx, forceinty;
+        double forcebedx, forcebedy;
+        double forcebedx_curv, forcebedy_curv;
+        double forcegravx,forcegravy;
+        double unitvx, unitvy, tmp;
+        double Ustore[3];
+        double inertial_x, inertial_y;
+        double drag_x, drag_y;
+
+        Ustore[0] = prev_state_vars_[0][ndx]
+                - dtdx * (fluxxp[0] - fluxxm[0])
+                - dtdy * (fluxyp[0] - fluxym[0])
+                + dt * Influx_[0][ndx];
+        Ustore[0] = c_dmax1(Ustore[0], 0.0);
+
+        Ustore[1] = prev_state_vars_[1][ndx]
+                - dtdx * (fluxxp[1] - fluxxm[1])
+                - dtdy * (fluxyp[1] - fluxym[1])
+                + dt * Influx_[1][ndx];
+
+        Ustore[2] = prev_state_vars_[2][ndx]
+                - dtdx * (fluxxp[2] - fluxxm[2])
+                - dtdy * (fluxyp[2] - fluxym[2])
+                + dt * Influx_[2][ndx];
+
+        // initialize to zero
+        forceintx = 0.0;
+        forcebedx = 0.0;
+        forcebedx_curv = 0.0;
+        forcebedy_curv = 0.0;
+        forceinty = 0.0;
+        forcebedy = 0.0;
+        unitvx = 0.0;
+        unitvy = 0.0;
+        elem_eroded = 0.0;
+
+        if(h[ndx] > tiny)
+        {
+            // S terms
+        	speed_squared = VxVy[0] * VxVy[0] + VxVy[1] * VxVy[1];
+
+            if (speed_squared > 0.0)
+            {
+
+                speed = sqrt(speed_squared);
+
+                unitvx = VxVy[0] / speed;
+                unitvy = VxVy[1] / speed;
+            }
+            else
+            {
+                unitvx = 0.0;
+                unitvy = 0.0;
+            }
+
+            //ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+             // x direction source terms
+             //ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+            // The gravity force in the x direction
+            forcegravx = g[0][ndx] * h[ndx];
+
+            // The basal type friction force in x direction
+            tmp = c_dmax1(g[2][ndx] * h[ndx] + VxVy[0] * hVx[ndx] * curvature_[0][ndx], 0.0);
+            if (tmp > 0.0){
+            	forcebedx = unitvx * mu * g[2][ndx] * h[ndx];
+            	forcebedx_curv = unitvx * mu * VxVy[0] * hVx[ndx] * curvature_[0][ndx];
+            }
+
+            //printf("focebedx_curv =  %lf\n", forcebedx_curv);
+          //  forcebedx_curv = 0;
+            
+
+
+
+            // The velocity-dependent resisting force in x direction
+            forceintx = unitvx * speed_squared * inv_xi / scale_.epsilon;
+
+            //printf("force int = %lf force bed = %lf\n", forceintx, forcebedx);
+
+            //printf("foceintx =  %lf\n", forceintx);
+
+            //STOPPING CRITERIA
+            inertial_x = fabs( Ustore[1] + dt * forcegravx );
+
+            drag_x = fabs( dt * ( forceintx + forcebedx + forcebedx_curv) );
+
+            if ( inertial_x > drag_x )
+            	Ustore[1] = Ustore[1] + dt * (forcegravx - forcebedx - forcebedx_curv - forceintx);
+            else
+            	Ustore[1] = 0.0;
+             //ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+             // y direction source terms
+             //cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+            // The gravity force in the y direction
+            forcegravy = g[1][ndx] * h[ndx];
+
+            // The basal friction force  in y direction
+            tmp = c_dmax1(g[2][ndx] * h[ndx] + VxVy[1] * hVy[ndx] * curvature_[1][ndx], 0.0);
+            if (tmp > 0.0){
+            	forcebedy = unitvy * mu * g[2][ndx] * h[ndx];
+            	forcebedy_curv = unitvy * mu * VxVy[1] * hVy[ndx] * curvature_[1][ndx];
+            }
+
+           // forcebedy_curv = 0;
+
+            // The velocity-dependent resisting force in y direction
+            forceinty = unitvy * speed_squared * inv_xi / scale_.epsilon;
+
+            //STOPPING CRITERIA
+            inertial_y = fabs( Ustore[2] + dt * forcegravy );
+
+            drag_y = fabs( dt * ( forceinty + forcebedy + forcebedy_curv) );
+
+            if ( inertial_y > drag_y )
+            	Ustore[2] = Ustore[2] + dt * (forcegravy - forcebedy - forcebedy_curv - forceinty);
+    	    else
+    	    	Ustore[2] = 0.0;
+
+        }
+
+        // computation of magnitude of friction forces for statistics
+        elem_forceint = speed_squared * inv_xi / scale_.epsilon;
+        elem_forcebed = unitvx * forcebedx + unitvy*forcebedy;
+
+        // update the state variables
+        h[ndx]=0.5*(Ustore[0] + U_OLD[0]);
+        hVx[ndx]=0.5*(Ustore[1] + U_OLD[1]);
+        hVy[ndx]=0.5*(Ustore[2] + U_OLD[2]);
+
+        //end of correct
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        elem_forceint *= dxdy;
+        elem_forcebed *= dxdy;
+        elem_eroded *= dxdy;
+
+
+        if(stoppedflags_[ndx] == 2)
+            elem_deposited = h[ndx] * dxdy;
+        else
+            elem_deposited = 0.0;
+
+        if(stoppedflags_[ndx])
+            elem_eroded = 0.0;
+
         elements_[ndx].calc_shortspeed(1.0 / dt);
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1625,6 +1899,7 @@ void Integrator_SinglePhase_Voellmy_Salm::corrector()
 	deposited = m_deposited;
 	realvolume = m_realvolume;
 }
+
 void Integrator_SinglePhase_Voellmy_Salm::flowrecords()
 {
 	// Updating spatial derivatives of State Variables
