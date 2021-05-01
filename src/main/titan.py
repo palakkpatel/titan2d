@@ -289,7 +289,7 @@ class TitanSimulationBase(object):
             },
             'elementType':ElementType_SinglePhase,
             'integrators':[{
-                    'conditions' :[lambda tsim,modprop,numprop: numprop['order']==1],
+                    'conditions' :[lambda tsim,modprop,numprop: numprop['order']==1 or numprop['order']==2],
                     'constructor':Integrator_SinglePhase_Voellmy_Salm
             }]
         },

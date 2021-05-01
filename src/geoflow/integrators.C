@@ -194,8 +194,8 @@ void Integrator::step()
     ElemProp.calc_edge_states(matprops_ptr, timeprops_ptr, this, myid, order, outflow);
     PROFILING3_STOPADD_RESTART(step_calc_edge_states,pt_start);
 
-    //if(order!=1)predictor();
-    predictor();
+    if(order!=1)predictor();
+    //predictor();
     PROFILING3_STOPADD_RESTART(step_predict,pt_start);
     TIMING1_STOPADD(predictorStepTime, t_start);
     /* finished predictor step */
@@ -206,8 +206,8 @@ void Integrator::step()
 
     /* calculate the slopes for the new (half-time step) state variables */
     TIMING1_START(t_start);
-    //if(order!=1)ElemProp.slopes(matprops_ptr);
-    ElemProp.slopes(matprops_ptr);
+    if(order!=1)ElemProp.slopes(matprops_ptr);
+    //ElemProp.slopes(matprops_ptr);
     TIMING1_STOPADD(slopesCalcTime, t_start);
     PROFILING3_STOPADD_RESTART(step_slopesCalc,pt_start);
     // in TWO PHASES #endif  //SECOND_ORDER
@@ -220,7 +220,7 @@ void Integrator::step()
 
     /* calculate kact/pass */
     if(order!=1||numprocs>1)
-        double dt_not_used = get_coef_and_eigen(1);
+        //double dt_not_used = get_coef_and_eigen(1);
     PROFILING3_STOPADD_RESTART(step_get_coef_and_eigen,pt_start);
     /*
      * calculate edge states
