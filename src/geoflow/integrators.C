@@ -2770,7 +2770,7 @@ void Integrator_TwoPhases_Coulomb::corrector()
     double x_find = 259961.649325;
     double y_find = 3816591.388375;
     double short_dist = 10000;
-    ti_ndx_t f_idx;
+    ti_ndx_t f_idx = 10;
 
     for(ti_ndx_t ndx =0; ndx < elements_.size(); ndx++){
         double xcoord = coord_[0][ndx];
