@@ -986,6 +986,8 @@ private:
         planes[i][8] = ((fabs(planes[i][4]) + fabs(planes[i][5])) * (fabs(planes[i][4]) + fabs(planes[i][5])))
                 / planes[i][6];
         planes[i][9] = 0.0; //discharge through the planes[i]
+
+        printf("\nPlane %d X_a - X_b: %g\n", i, planes[i][4]);
     }
 public:
     //! this function add plane and initializes the planes information (to zero flux through the planes) and precomputes a number of quantities to make updating the flux through the planes fast
@@ -995,8 +997,8 @@ public:
         std::array<double,10> plane;
 
         plane[0] = m_x_a; //xa
-        plane[1] = m_y_a; //xb
-        plane[2] = m_x_b; //ya
+        plane[1] = m_x_b; //xb
+        plane[2] = m_y_a; //ya
         plane[3] = m_y_b; //yb
 
         //printf("plane %d: (%16.10g,%16.10g) (%16.10g,%16.10g)\n",iplane,planes[iplane][0],planes[iplane][2],planes[iplane][1],planes[iplane][3]);
