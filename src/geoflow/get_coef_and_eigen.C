@@ -121,6 +121,7 @@ double Integrator_SinglePhase_Coulomb::get_coef_and_eigen(int ghost_flag)
         }
     }
 
+    // 0.2 is the CFL number
     dt[0] = 0.2*0.5 * min_dx_dy_evalue;
 
     dt[1] = -0.9 * sqrt(hmax * scale_.epsilon * scale_.gravity / 9.8); //find the negative of the max not the positive min
@@ -475,7 +476,7 @@ double Integrator_TwoPhases::get_coef_and_eigen(int ghost_flag)
         }
     }
     
-    dt[0] = 0.5* min_dx_dy_evalue;
+    dt[0] = 0.2*0.5* min_dx_dy_evalue; // Here 0.2*0.5 is the cfl number 
     
     dt[1] = -0.9 * sqrt(hmax * scale_.epsilon * scale_.gravity / 9.8); //find the negative of the max not the positive min
             
@@ -491,6 +492,6 @@ double Integrator_TwoPhases::get_coef_and_eigen(int ghost_flag)
     if(dt[0] == 0.0)
         dt[0] = 0.5 * global_dt[2];
     
-    
+    printf("\nTime Step =  %lf\n",dt[0]);
     return dt[0];
 }

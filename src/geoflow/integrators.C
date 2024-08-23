@@ -2782,12 +2782,15 @@ void Integrator_TwoPhases_Coulomb::corrector()
     }
     //printf("R = %.12lf\n",R);
 
+    /*
+    // Getting values at a Probe Location. For Debugging purpose only. 
+
     double x_find = 260236.77;
     double y_find = 3816155.72;
 
     double x_find1 = 261074.96;
     double y_find1 = 3816184.86;
-    //double y_find = 3816591.388375;
+
     double short_dist = 10000, short_dist1 = 10000;
     ti_ndx_t f_idx = 10, f_idx1 = 10;
 
@@ -2811,16 +2814,11 @@ void Integrator_TwoPhases_Coulomb::corrector()
     }
 
 
-    //Element* Curr_El = &(elenode_[f_idx]);
-
     printf("Distance = %.10lf\tElevation = %.10lf\n",short_dist, elements_[f_idx].elevation());
     printf("dx = %.12lf\tdy = %.12lf\n",dx_[0][f_idx], dx_[1][f_idx]);
+    */
 
-    // mdj 2007-04 this loop has pretty much defeated me - there is
-    //             a dependency in the Element class that causes incorrect
-    //             results
-    //printf("Before c1=%lf\tc2=%lf\tc3=%lf\n",state_vars_[3][f_idx],state_vars_[4][f_idx],state_vars_[5][f_idx]);
-    
+
     #pragma omp parallel for schedule(dynamic,TITAN2D_DINAMIC_CHUNK) \
         reduction(+: m_forceint, m_forcebed, m_eroded, m_deposited, m_realvolume)
     for(ti_ndx_t ndx = 0; ndx < elements_.size(); ndx++)
@@ -3066,20 +3064,20 @@ void Integrator_TwoPhases_Coulomb::corrector()
 
         double Ustore[NUM_STATE_VARS], ZF, INFL, chtemp = 0, redetach = 0;
 
-        if (ndx == f_idx) printf("1. H = %.8lf\n",prev_state_vars_[0][ndx]);
+        // if (ndx == f_idx) printf("1. H = %.8lf\n",prev_state_vars_[0][ndx]);
 
         for (i=0; i<NUM_STATE_VARS; i++){
 
             Ustore[i]=prev_state_vars_[i][ndx] - dtdx * (fluxxp[i] - fluxxm[i]) - dtdy * (fluxyp[i] - fluxym[i]);
         }
 
-        if (ndx == f_idx) printf("2. H = %.8lf\n",Ustore[0]);
+        // if (ndx == f_idx) printf("2. H = %.8lf\n",Ustore[0]);
 
         Ustore[0] = c_dmax1(Ustore[0], 0.0);
 
         if (WATERSHED==1) Ustore[0] = Ustore[0] + dt*R1_eff;
 
-        if (ndx == f_idx) printf("3. H = %.8lf\n",Ustore[0]);
+        // if (ndx == f_idx) printf("3. H = %.8lf\n",Ustore[0]);
 
         Ustore[1] = Ustore[1] + dt*SX + dt*GAMMAX + dt*DFMASK*BETAX;
         Ustore[2] = Ustore[2] + dt*SY + dt*GAMMAY + dt*DFMASK*BETAY;
@@ -3097,7 +3095,7 @@ void Integrator_TwoPhases_Coulomb::corrector()
             Ustore[0]-=INFL;
         } 
 
-        if (ndx == f_idx) printf("4. H = %.8lf\n",Ustore[0]);
+        // if (ndx == f_idx) printf("4. H = %.8lf\n",Ustore[0]);
 
         //VINF_[ndx] += INFL;
         //Ustore[0]-=INFL;
@@ -3126,7 +3124,7 @@ void Integrator_TwoPhases_Coulomb::corrector()
 
                 M_[i-3][ndx] = M_[i-3][ndx] + dt*(E[0][i-3]+E[2][i-3]) - Ustore[i] + chtemp;
 
-                TOTEROS_[ndx] -= (Ustore[i] - chtemp)/(rhos*(1-phi)); //Updating Topography
+                TOTEROS_[ndx] -= (Ustore[i] - chtemp)/(rhos*(1-phi)); //Updating Topography Erosion is negative, Depostion is Postive
 
             }
 
@@ -3157,7 +3155,7 @@ void Integrator_TwoPhases_Coulomb::corrector()
             }
         }
 
-        if (ndx == f_idx) printf("5. E1 = %.8lf\t E2 = %.8lf\t E3 = %.8lf\t E4=%.8lf\n",E[0][3],E[1][3],E[2][3],E[3][3]);
+        // if (ndx == f_idx) printf("5. E1 = %.8lf\t E2 = %.8lf\t E3 = %.8lf\t E4=%.8lf\n",E[0][3],E[1][3],E[2][3],E[3][3]);
 
         // Implicit Friction Update (LeVeque, 2011)
         if (Ustore[0] > GEOFLOW_TINY){
@@ -3239,7 +3237,7 @@ void Integrator_TwoPhases_Coulomb::corrector()
 
 
     }*/
-    printf("After  c1=%lf\tc2=%lf\tc3=%lf\n",state_vars_[3][f_idx],state_vars_[4][f_idx],state_vars_[5][f_idx]);
+    // printf("After  c1=%lf\tc2=%lf\tc3=%lf\n",state_vars_[3][f_idx],state_vars_[4][f_idx],state_vars_[5][f_idx]);
 
     index_max++;
 
@@ -3307,7 +3305,7 @@ void Integrator_TwoPhases_Coulomb::initialize_statevariables()
     AMAP = detach;
     ADMAP = detachd;
 
-    mask = 0;
+    mask = 0; // Toggle Masking. 1  in On, 0 is Off.
 
     initialize_mask();
 
@@ -3356,9 +3354,6 @@ void Integrator_TwoPhases_Coulomb::initialize_statevariables()
     }
     
     g_total = 9.81;
-
-    
-    printf("********** Check point 0: All initial data Read ***********\n");
     // hfilm = 1e-5; // Geoflow tiny in Titan2d
 } 
 

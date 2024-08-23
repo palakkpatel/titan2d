@@ -855,6 +855,9 @@ public:
     //! 2-d array holding the cummulative kinetic energy at every point
     double *cum_kinergy;
 
+    //! 2-d array holding the maximum throughout time velocitty  at every point
+    double *max_velocity;
+
     ElementType elementType;
 
     //! do the calculations
@@ -918,8 +921,6 @@ protected:
     int myid;
     int numprocs;
 
-
-
     //! 2-d array holding the maximum throughout time pileheight at every point
     //! pileheight_loc[ithread][ix+iy*stride]
     double **pileheight_loc;
@@ -937,7 +938,9 @@ protected:
     double **cum_kinergy_loc;
     vector<double, AlignmentAllocator<double> > cum_kinergy_by_elm;
 
-
+    //! 2-d array holding the the maximum throughout time velocity at every point.
+    double **max_velocity_loc;
+    vector<double, AlignmentAllocator<double> > max_velocity_by_elm;
 
     vector<int> el_x_start;
     vector<int> el_x_stop;
