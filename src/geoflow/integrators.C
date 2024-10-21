@@ -3005,8 +3005,11 @@ void Integrator_TwoPhases_Coulomb::corrector()
                 }
             }
 
-            if (prev_state_vars_[0][ndx] <= hcfrict) MANNING = ROUGHNESS*pow(prev_state_vars_[0][ndx]/hcfrict, depthdependentexponent);
+            if (MASK_[ndx] < 1) MANNING = 0.1;
             else MANNING = ROUGHNESS;
+
+            if (prev_state_vars_[0][ndx] <= hcfrict) MANNING = MANNING*pow(prev_state_vars_[0][ndx]/hcfrict, depthdependentexponent);
+            // else MANNING = ROUGHNESS;
 
             double BETADRAG = pow(prev_state_vars_[0][ndx], 0.1667)/(MANNING*pow(g_total,0.5));
 
@@ -3158,9 +3161,12 @@ void Integrator_TwoPhases_Coulomb::corrector()
         // if (ndx == f_idx) printf("5. E1 = %.8lf\t E2 = %.8lf\t E3 = %.8lf\t E4=%.8lf\n",E[0][3],E[1][3],E[2][3],E[3][3]);
 
         // Implicit Friction Update (LeVeque, 2011)
-        if (Ustore[0] > GEOFLOW_TINY){
-            if (Ustore[0]<= hcfrict) MANNING = ROUGHNESS*pow(Ustore[0]/hcfrict, depthdependentexponent);
+        if (MASK_[ndx] < 1) MANNING = 0.1;
             else MANNING = ROUGHNESS;
+
+        if (Ustore[0] > GEOFLOW_TINY){
+            if (Ustore[0]<= hcfrict) MANNING = MANNING*pow(Ustore[0]/hcfrict, depthdependentexponent);
+            // else MANNING = ROUGHNESS;
 
             SF = MANNING*MANNING*g[2]*pow(Ustore[1]*Ustore[1]+Ustore[2]*Ustore[2],0.5)/pow(Ustore[0],2.333);
 
@@ -3305,7 +3311,7 @@ void Integrator_TwoPhases_Coulomb::initialize_statevariables()
     AMAP = detach;
     ADMAP = detachd;
 
-    mask = 0; // Toggle Masking. 1  in On, 0 is Off.
+    mask = 1; // Toggle Masking. 1  in On, 0 is Off.
 
     initialize_mask();
 

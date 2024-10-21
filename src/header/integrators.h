@@ -774,8 +774,9 @@ protected:
                 }
 
                 mask_vec.push_back(x_vec);
-                
+             
             }
+            printf("\nMASK IS TURNED ON\n");
 
         }
 
