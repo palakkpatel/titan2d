@@ -30,6 +30,7 @@ bin/
 .idea
 /.pydevproject
 /nbproject
+.vscode/
 
 #autotols generated files
 autom4te.cache

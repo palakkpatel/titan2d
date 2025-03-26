@@ -2752,38 +2752,36 @@ void Integrator_TwoPhases_Coulomb::predictor()
 }
 void Integrator_TwoPhases_Coulomb::corrector()
 {
-    MatPropsTwoPhases* matprops2_ptr=static_cast<MatPropsTwoPhases*>(matprops_ptr);
+    MatPropsTwoPhases *matprops2_ptr = static_cast<MatPropsTwoPhases *>(matprops_ptr);
 
-    //for comparison of magnitudes of forces in slumping piles
+    // for comparison of magnitudes of forces in slumping piles
     double m_forceint = 0.0;
     double m_forcebed = 0.0;
     double m_eroded = 0.0;
     double m_deposited = 0.0;
     double m_realvolume = 0.0;
 
+    // intfrictang=matprops_ptr->intfrict;
+    // frict_tiny=matprops_ptr->frict_tiny;
+    double sin_intfrictang = sin(int_frict);
+    double epsilon = scale_.epsilon;
 
-    //intfrictang=matprops_ptr->intfrict;
-    //frict_tiny=matprops_ptr->frict_tiny;
-    double sin_intfrictang=sin(int_frict);
-    double epsilon=scale_.epsilon;
+    double Ustore_max0 = 0, infl_max, zf_max;
 
-
-    double Ustore_max0=0 , infl_max, zf_max;
-    
-
-    //Calculate Rain Data
+    // Calculate Rain Data
     double raintime_end = RAINTIME.back();
     double raintime_start = RAINTIME[0];
 
-    if (timeprops_ptr->timesec() >= raintime_start && rain_idx < rnum && timeprops_ptr->timesec() >= RAINTIME[rain_idx]){
-        R = R_coef*RAIN[rain_idx];
+    if (timeprops_ptr->timesec() >= raintime_start && rain_idx < rnum && timeprops_ptr->timesec() >= RAINTIME[rain_idx])
+    {
+        R = R_coef * RAIN[rain_idx];
         R1 = R;
         rain_idx++;
     }
-    //printf("R = %.12lf\n",R);
+    // printf("R = %.12lf\n",R);
 
     /*
-    // Getting values at a Probe Location. For Debugging purpose only. 
+    // Getting values at a Probe Location. For Debugging purpose only.
 
     double x_find = 260236.77;
     double y_find = 3816155.72;
@@ -2805,7 +2803,7 @@ void Integrator_TwoPhases_Coulomb::corrector()
             f_idx = ndx;
         }
 
-        dis = sqrt(pow(xcoord - x_find1,2)+pow(ycoord - y_find1,2)); 
+        dis = sqrt(pow(xcoord - x_find1,2)+pow(ycoord - y_find1,2));
 
         if (dis < short_dist1){
             short_dist1 = dis;
@@ -2818,30 +2816,29 @@ void Integrator_TwoPhases_Coulomb::corrector()
     printf("dx = %.12lf\tdy = %.12lf\n",dx_[0][f_idx], dx_[1][f_idx]);
     */
 
-
-    #pragma omp parallel for schedule(dynamic,TITAN2D_DINAMIC_CHUNK) \
-        reduction(+: m_forceint, m_forcebed, m_eroded, m_deposited, m_realvolume)
-    for(ti_ndx_t ndx = 0; ndx < elements_.size(); ndx++)
+#pragma omp parallel for schedule(dynamic, TITAN2D_DINAMIC_CHUNK) \
+    reduction(+ : m_forceint, m_forcebed, m_eroded, m_deposited, m_realvolume)
+    for (ti_ndx_t ndx = 0; ndx < elements_.size(); ndx++)
     {
-        if(adapted_[ndx] <= 0)continue;//if this element does not belong on this processor don't involve!!!
-        //if first order states was not updated as there is no predictor
-        if(order==1)
+        if (adapted_[ndx] <= 0)
+            continue; // if this element does not belong on this processor don't involve!!!
+        // if first order states was not updated as there is no predictor
+        if (order == 1)
         {
             for (int i = 0; i < NUM_STATE_VARS; i++)
-                prev_state_vars_[i][ndx]=state_vars_[i][ndx];
+                prev_state_vars_[i][ndx] = state_vars_[i][ndx];
         }
-        if (index_max == -10) 
+        if (index_max == -10)
         {
             for (int i = 0; i < NUM_STATE_VARS; i++)
-                prev_state_vars_[i][ndx]=0;
-            prev_state_vars_[0][ndx]=0.0001;
+                prev_state_vars_[i][ndx] = 0;
+            prev_state_vars_[0][ndx] = 0.0001;
         }
 
-
-        R1 = R*MASK_[ndx];
-        double R1_eff = (1-Cv)*R1 + Cv*(pi*R1 + Di);
-        //if(ndx == f_idx) printf("R 1 = %.15lf\n",R1);
-        //if(ndx == f_idx1) printf("R 2 = %.15lf\n",R1);
+        R1 = R * MASK_[ndx];
+        double R1_eff = (1 - Cv) * R1 + Cv * (pi * R1 + Di);
+        // if(ndx == f_idx) printf("R 1 = %.15lf\n",R1);
+        // if(ndx == f_idx1) printf("R 2 = %.15lf\n",R1);
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
         double elem_forceint;
         double elem_forcebed;
@@ -2862,23 +2859,21 @@ void Integrator_TwoPhases_Coulomb::corrector()
         double fluxxp[NUM_STATE_VARS], fluxyp[NUM_STATE_VARS];
         double fluxxm[NUM_STATE_VARS], fluxym[NUM_STATE_VARS];
 
-
         ti_ndx_t nxp = node_key_ndx_[xp + 4][ndx];
-        for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+        for (ivar = 0; ivar < NUM_STATE_VARS; ivar++)
             fluxxp[ivar] = node_flux_[ivar][nxp];
 
         ti_ndx_t nyp = node_key_ndx_[yp + 4][ndx];
-        for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+        for (ivar = 0; ivar < NUM_STATE_VARS; ivar++)
             fluxyp[ivar] = node_flux_[ivar][nyp];
 
         ti_ndx_t nxm = node_key_ndx_[xm + 4][ndx];
-        for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+        for (ivar = 0; ivar < NUM_STATE_VARS; ivar++)
             fluxxm[ivar] = node_flux_[ivar][nxm];
 
         ti_ndx_t nym = node_key_ndx_[ym + 4][ndx];
-        for(ivar = 0; ivar < NUM_STATE_VARS; ivar++)
+        for (ivar = 0; ivar < NUM_STATE_VARS; ivar++)
             fluxym[ivar] = node_flux_[ivar][nym];
-
 
         /* the values being passed to correct are for a SINGLE element, NOT a
          region, as such the only change that having variable bedfriction
@@ -2887,302 +2882,332 @@ void Integrator_TwoPhases_Coulomb::corrector()
          I wonder if this is legacy code, it seems odd that it is only called
          for the SUN Operating System zee ../geoflow/correct.f */
 
-        
         double kactxy[DIMENSION];
         double bedfrict = effect_bedfrict_[ndx];
         double Vfluid[DIMENSION];
         double volf;
-        
-        if (prev_state_vars_[0][ndx] > GEOFLOW_TINY){
-            Vfluid[0] = prev_state_vars_[1][ndx]/prev_state_vars_[0][ndx];
-            Vfluid[1] = prev_state_vars_[2][ndx]/prev_state_vars_[0][ndx];
+
+        if (prev_state_vars_[0][ndx] > GEOFLOW_TINY)
+        {
+            Vfluid[0] = prev_state_vars_[1][ndx] / prev_state_vars_[0][ndx];
+            Vfluid[1] = prev_state_vars_[2][ndx] / prev_state_vars_[0][ndx];
         }
-        else{
+        else
+        {
             Vfluid[0] = Vfluid[1] = 0;
         }
-        elements_[ndx].convect_dryline(Vfluid[0],Vfluid[1], dt); //this is necessary
-        
+        elements_[ndx].convect_dryline(Vfluid[0], Vfluid[1], dt); // this is necessary
 
-//#ifdef STOPPED_FLOWS
-    #ifdef STOPCRIT_CHANGE_SOURCE
-        int IF_STOPPED=stoppedflags_[ndx];
-    #else
+        // #ifdef STOPPED_FLOWS
+#ifdef STOPCRIT_CHANGE_SOURCE
+        int IF_STOPPED = stoppedflags_[ndx];
+#else
         int IF_STOPPED = !(!stoppedflags_[ndx]);
-    #endif
-//#endif
-        double g[3]{gravity_[0][ndx],gravity_[1][ndx],gravity_[2][ndx]};
-        double d_g[3]{d_gravity_[0][ndx],d_gravity_[1][ndx],d_gravity_[2][ndx]};
+#endif
+        // #endif
+        double g[3]{gravity_[0][ndx], gravity_[1][ndx], gravity_[2][ndx]};
+        double d_g[3]{d_gravity_[0][ndx], d_gravity_[1][ndx], d_gravity_[2][ndx]};
 
-        for (int i = 0; i < 2; i++){
-            g[i]=-1*g[i];
-            d_g[i]=-1*d_g[i];
+        for (int i = 0; i < 2; i++)
+        {
+            g[i] = -1 * g[i];
+            d_g[i] = -1 * d_g[i];
         }
-
 
         int i;
-        
 
-        //source terms
-        
-        double SX = -g[0]*prev_state_vars_[0][ndx];
-        double SY = -g[1]*prev_state_vars_[0][ndx];
-        double RHO = rhow, SED[NUM_STATE_VARS-3], SF, q;
+        // source terms
 
-        for (i=3; i<NUM_STATE_VARS; i++){
-            SED[i-3]=0;
-            if(prev_state_vars_[0][ndx] > GEOFLOW_TINY){
-                SED[i-3] = prev_state_vars_[i][ndx] / prev_state_vars_[0][ndx];
+        double SX = -g[0] * prev_state_vars_[0][ndx];
+        double SY = -g[1] * prev_state_vars_[0][ndx];
+        double RHO = rhow, SED[NUM_STATE_VARS - 3], SF, q;
+
+        for (i = 3; i < NUM_STATE_VARS; i++)
+        {
+            SED[i - 3] = 0;
+            if (prev_state_vars_[0][ndx] > GEOFLOW_TINY)
+            {
+                SED[i - 3] = prev_state_vars_[i][ndx] / prev_state_vars_[0][ndx];
             }
-            //TOTSED_[ndx]+=SED[i-3]/rhos;
-            if (SED[i-3]<-1e-5) SED[i-3]=0;
+            // TOTSED_[ndx]+=SED[i-3]/rhos;
+            if (SED[i - 3] < -1e-5)
+                SED[i - 3] = 0;
         }
 
-        RHO = rhow*(1-TOTSED_[ndx])+rhos*TOTSED_[ndx];
+        RHO = rhow * (1 - TOTSED_[ndx]) + rhos * TOTSED_[ndx];
 
         double GAMMAX = 0, GAMMAY = 0;
-        
+
         double d_TOTSEDx = 0, d_TOTSEDy = 0;
 
-        for (i=3; i<NUM_STATE_VARS; i++){
-            if(prev_state_vars_[0][ndx] > GEOFLOW_TINY && prev_state_vars_[i][ndx] > 0 ){
-                d_TOTSEDx += (prev_state_vars_[0][ndx]*d_state_vars_[i][ndx] - prev_state_vars_[i][ndx]*d_state_vars_[0][ndx])/(prev_state_vars_[0][ndx]*prev_state_vars_[0][ndx]);
+        for (i = 3; i < NUM_STATE_VARS; i++)
+        {
+            if (prev_state_vars_[0][ndx] > GEOFLOW_TINY && prev_state_vars_[i][ndx] > 0)
+            {
+                d_TOTSEDx += (prev_state_vars_[0][ndx] * d_state_vars_[i][ndx] - prev_state_vars_[i][ndx] * d_state_vars_[0][ndx]) / (prev_state_vars_[0][ndx] * prev_state_vars_[0][ndx]);
 
-                d_TOTSEDy += (prev_state_vars_[0][ndx]*d_state_vars_[i + NUM_STATE_VARS][ndx] - prev_state_vars_[i][ndx]*d_state_vars_[0 + NUM_STATE_VARS][ndx])/(prev_state_vars_[0][ndx]*prev_state_vars_[0][ndx]);
+                d_TOTSEDy += (prev_state_vars_[0][ndx] * d_state_vars_[i + NUM_STATE_VARS][ndx] - prev_state_vars_[i][ndx] * d_state_vars_[0 + NUM_STATE_VARS][ndx]) / (prev_state_vars_[0][ndx] * prev_state_vars_[0][ndx]);
             }
         }
 
-        d_TOTSEDx = d_TOTSEDx/rhos;
-        d_TOTSEDy = d_TOTSEDy/rhos;
+        d_TOTSEDx = d_TOTSEDx / rhos;
+        d_TOTSEDy = d_TOTSEDy / rhos;
 
-        GAMMAX -= 0.5*(rhos - RHO)*g[2]*prev_state_vars_[0][ndx]*prev_state_vars_[0][ndx]/RHO*d_TOTSEDx;
-        GAMMAY -= 0.5*(rhos - RHO)*g[2]*prev_state_vars_[0][ndx]*prev_state_vars_[0][ndx]/RHO*d_TOTSEDy;
-    
+        GAMMAX -= 0.5 * (rhos - RHO) * g[2] * prev_state_vars_[0][ndx] * prev_state_vars_[0][ndx] / RHO * d_TOTSEDx;
+        GAMMAY -= 0.5 * (rhos - RHO) * g[2] * prev_state_vars_[0][ndx] * prev_state_vars_[0][ndx] / RHO * d_TOTSEDy;
 
-        double DFMASK = 0, BETAX = 0 , BETAY = 0;
+        double DFMASK = 0, BETAX = 0, BETAY = 0;
 
-        DFMASK = c_dmin1(1,(TOTSED_[ndx] - 0.2)/0.2);
+        DFMASK = c_dmin1(1, (TOTSED_[ndx] - 0.2) / 0.2);
 
-        if(prev_state_vars_[0][ndx] < mindfdepth || TOTSED_[ndx] < 0.2) DFMASK = 0;
-        BETAX=-(1-lambda)*g[2]*prev_state_vars_[0][ndx]*frictioncoef;
-        BETAY=-(1-lambda)*g[2]*prev_state_vars_[0][ndx]*frictioncoef;
-        if(prev_state_vars_[1][ndx]<0) BETAX = -1*BETAX;
-        if(prev_state_vars_[2][ndx]<0) BETAY = -1*BETAY;
+        if (prev_state_vars_[0][ndx] < mindfdepth || TOTSED_[ndx] < 0.2)
+            DFMASK = 0;
+        BETAX = -(1 - lambda) * g[2] * prev_state_vars_[0][ndx] * frictioncoef;
+        BETAY = -(1 - lambda) * g[2] * prev_state_vars_[0][ndx] * frictioncoef;
+        if (prev_state_vars_[1][ndx] < 0)
+            BETAX = -1 * BETAX;
+        if (prev_state_vars_[2][ndx] < 0)
+            BETAY = -1 * BETAY;
 
-        double E[4][NUM_STATE_VARS-3];
+        double E[4][NUM_STATE_VARS - 3];
         double mtstar, omega;
 
-        double curv_x=curvature_[0][ndx];
-        double curv_y=curvature_[1][ndx];
-        double xslope=zeta_[0][ndx];
-        double yslope=zeta_[1][ndx];
+        double curv_x = curvature_[0][ndx];
+        double curv_y = curvature_[1][ndx];
+        double xslope = zeta_[0][ndx];
+        double yslope = zeta_[1][ndx];
         double slope = sqrt(xslope * xslope + yslope * yslope);
         double MANNING = ROUGHNESS;
 
-
-        for (i=0; i < (NUM_STATE_VARS-3); i++){
-            E[0][i]=0;
-            E[1][i]=0;
-            E[2][i]=0;
-            E[3][i]=0;
+        for (i = 0; i < (NUM_STATE_VARS - 3); i++)
+        {
+            E[0][i] = 0;
+            E[1][i] = 0;
+            E[2][i] = 0;
+            E[3][i] = 0;
 
             mtstar = mtstar0;
-            if (prev_state_vars_[0][ndx]/cos(atan(fabs(slope)))>h_c){
-                mtstar = mtstar0*pow(h_c/(prev_state_vars_[0][ndx]/cos(atan(fabs(slope)))),b);
+            if (prev_state_vars_[0][ndx] / cos(atan(fabs(slope))) > h_c)
+            {
+                mtstar = mtstar0 * pow(h_c / (prev_state_vars_[0][ndx] / cos(atan(fabs(slope)))), b);
             }
 
-            double H = c_dmin1(1, TOTM_[ndx]/mtstar);
+            double H = c_dmin1(1, TOTM_[ndx] / mtstar);
 
-            if (prev_state_vars_[0][ndx]>10*GEOFLOW_TINY && TOTSED_[ndx] < 0.6 && DS_[i]<cri_splashd ){
-                E[0][i] = (1-H)*P_[i]*AMAP*(Cv*pi + (1-Cv))*Cb*R1;
+            if (prev_state_vars_[0][ndx] > 10 * GEOFLOW_TINY && TOTSED_[ndx] < 0.6 && DS_[i] < cri_splashd)
+            {
+                E[0][i] = (1 - H) * P_[i] * AMAP * (Cv * pi + (1 - Cv)) * Cb * R1;
 
-                if (TOTM_[ndx] > 1e-8 && M_[i][ndx] > 1e-8){
-                    E[1][i] = H*M_[i][ndx]/TOTM_[ndx]*ADMAP*(Cv*pi + (1-Cv))*Cb*R1;
+                if (TOTM_[ndx] > 1e-8 && M_[i][ndx] > 1e-8)
+                {
+                    E[1][i] = H * M_[i][ndx] / TOTM_[ndx] * ADMAP * (Cv * pi + (1 - Cv)) * Cb * R1;
                 }
 
-                if (prev_state_vars_[0][ndx]/cos(atan(fabs(slope)))>h_c){
-                    E[0][i] = E[0][i]*pow(h_c/(prev_state_vars_[0][ndx]/cos(atan(fabs(slope)))),b);
-                    E[1][i] = E[1][i]*pow(h_c/(prev_state_vars_[0][ndx]/cos(atan(fabs(slope)))),b);
+                if (prev_state_vars_[0][ndx] / cos(atan(fabs(slope))) > h_c)
+                {
+                    E[0][i] = E[0][i] * pow(h_c / (prev_state_vars_[0][ndx] / cos(atan(fabs(slope)))), b);
+                    E[1][i] = E[1][i] * pow(h_c / (prev_state_vars_[0][ndx] / cos(atan(fabs(slope)))), b);
                 }
             }
 
-            if (MASK_[ndx] < 1) MANNING = 0.1;
-            else MANNING = ROUGHNESS;
+            if (MASK_[ndx] < 1)
+                MANNING = 0.1;
+            else
+                MANNING = ROUGHNESS;
 
-            if (prev_state_vars_[0][ndx] <= hcfrict) MANNING = MANNING*pow(prev_state_vars_[0][ndx]/hcfrict, depthdependentexponent);
+            if (prev_state_vars_[0][ndx] <= hcfrict)
+                MANNING = MANNING * pow(prev_state_vars_[0][ndx] / hcfrict, depthdependentexponent);
             // else MANNING = ROUGHNESS;
 
-            double BETADRAG = pow(prev_state_vars_[0][ndx], 0.1667)/(MANNING*pow(g_total,0.5));
+            double BETADRAG = pow(prev_state_vars_[0][ndx], 0.1667) / (MANNING * pow(g_total, 0.5));
 
-            q = pow(prev_state_vars_[1][ndx]*prev_state_vars_[1][ndx]+prev_state_vars_[2][ndx]*prev_state_vars_[2][ndx],0.5);
+            q = pow(prev_state_vars_[1][ndx] * prev_state_vars_[1][ndx] + prev_state_vars_[2][ndx] * prev_state_vars_[2][ndx], 0.5);
 
-            SF = MANNING*MANNING*q*q/pow(prev_state_vars_[0][ndx],3.3333);
+            SF = MANNING * MANNING * q * q / pow(prev_state_vars_[0][ndx], 3.3333);
 
-            if (prev_state_vars_[0][ndx]>10*GEOFLOW_TINY && TOTSED_[ndx] < 0.6){
+            if (prev_state_vars_[0][ndx] > 10 * GEOFLOW_TINY && TOTSED_[ndx] < 0.6)
+            {
 
-                omega = RHO*g[2]*SF*q;
+                omega = RHO * g[2] * SF * q;
 
-                if (omega > UC && TOTSED_[ndx] < 0.6 && prev_state_vars_[0][ndx]>DS_[i]) E[2][i]=af*(omega - UC);
+                if (omega > UC && TOTSED_[ndx] < 0.6 && prev_state_vars_[0][ndx] > DS_[i])
+                    E[2][i] = af * (omega - UC);
 
-                E[2][i]=ERODIBILITYMASK*(1-H)*P_[i]*eff_F/J_entrain*E[2][i];
+                E[2][i] = ERODIBILITYMASK * (1 - H) * P_[i] * eff_F / J_entrain * E[2][i];
 
-                if (TOTM_[ndx]>1e-6 && M_[i][ndx]>0){
-                    omega = RHO*g[2]*SF*q;
+                if (TOTM_[ndx] > 1e-6 && M_[i][ndx] > 0)
+                {
+                    omega = RHO * g[2] * SF * q;
 
-                    if (omega > UC && TOTSED_[ndx] < 0.6 && prev_state_vars_[0][ndx]>DS_[i]) E[3][i]=af*(omega - UC);
-                    E[3][i]=ERODIBILITYMASK*H*M_[i][ndx]/TOTM_[ndx]*eff_F/((rhos-RHO)/rhos*g[2]*prev_state_vars_[0][ndx])*E[3][i];
+                    if (omega > UC && TOTSED_[ndx] < 0.6 && prev_state_vars_[0][ndx] > DS_[i])
+                        E[3][i] = af * (omega - UC);
+                    E[3][i] = ERODIBILITYMASK * H * M_[i][ndx] / TOTM_[ndx] * eff_F / ((rhos - RHO) / rhos * g[2] * prev_state_vars_[0][ndx]) * E[3][i];
                 }
-                else{
-                    E[3][i]=0;
+                else
+                {
+                    E[3][i] = 0;
                 }
-
             }
 
-            if (TOTEROS_[ndx] < -1*maxsoilthickness){
+            if (TOTEROS_[ndx] < -1 * maxsoilthickness)
+            {
                 E[0][i] = 0;
                 E[2][i] = 0;
             }
 
-            VF_[i][ndx]=pow(pow(13.95*nu/DS_[i],2)+1.09*(rhos/rhow-1)*g[2]*DS_[i],0.5)-13.95*nu/DS_[i];
+            VF_[i][ndx] = pow(pow(13.95 * nu / DS_[i], 2) + 1.09 * (rhos / rhow - 1) * g[2] * DS_[i], 0.5) - 13.95 * nu / DS_[i];
 
-            VF_[i][ndx]=VF_[i][ndx]*pow(1-c_dmin1(TOTSED_[ndx],0.99),4);
+            VF_[i][ndx] = VF_[i][ndx] * pow(1 - c_dmin1(TOTSED_[ndx], 0.99), 4);
 
-            //E[0][i]=0;
-            //E[1][i]=0;
-            //E[2][i]=0;
-            //E[3][i]=0;
+            // E[0][i]=0;
+            // E[1][i]=0;
+            // E[2][i]=0;
+            // E[3][i]=0;
 
-            if (prev_state_vars_[0][ndx] > mindfdepth && TOTSED_[ndx]>cthreshold){
-                E[0][i]=0;
-                E[1][i]=0;
-                E[2][i]=0;
-                E[3][i]=0;
-                VF_[i][ndx]=0;
+            if (prev_state_vars_[0][ndx] > mindfdepth && TOTSED_[ndx] > cthreshold)
+            {
+                E[0][i] = 0;
+                E[1][i] = 0;
+                E[2][i] = 0;
+                E[3][i] = 0;
+                VF_[i][ndx] = 0;
             }
         }
 
-        //Canopy Storage
-        if (CS>Si) Di=Ki*exp(gi*(CS-Si));
-        else Di=0;
-        CS=CS+dt*(1-pi)*R1-dt*Di-c_dmin1(CS,dt*evap); 
+        // Canopy Storage
+        if (CS > Si)
+            Di = Ki * exp(gi * (CS - Si));
+        else
+            Di = 0;
+        CS = CS + dt * (1 - pi) * R1 - dt * Di - c_dmin1(CS, dt * evap);
 
         double Ustore[NUM_STATE_VARS], ZF, INFL, chtemp = 0, redetach = 0;
 
         // if (ndx == f_idx) printf("1. H = %.8lf\n",prev_state_vars_[0][ndx]);
 
-        for (i=0; i<NUM_STATE_VARS; i++){
+        for (i = 0; i < NUM_STATE_VARS; i++)
+        {
 
-            Ustore[i]=prev_state_vars_[i][ndx] - dtdx * (fluxxp[i] - fluxxm[i]) - dtdy * (fluxyp[i] - fluxym[i]);
+            Ustore[i] = prev_state_vars_[i][ndx] - dtdx * (fluxxp[i] - fluxxm[i]) - dtdy * (fluxyp[i] - fluxym[i]);
         }
 
         // if (ndx == f_idx) printf("2. H = %.8lf\n",Ustore[0]);
 
         Ustore[0] = c_dmax1(Ustore[0], 0.0);
 
-        if (WATERSHED==1) Ustore[0] = Ustore[0] + dt*R1_eff;
+        if (WATERSHED == 1)
+            Ustore[0] = Ustore[0] + dt * R1_eff;
 
         // if (ndx == f_idx) printf("3. H = %.8lf\n",Ustore[0]);
 
-        Ustore[1] = Ustore[1] + dt*SX + dt*GAMMAX + dt*DFMASK*BETAX;
-        Ustore[2] = Ustore[2] + dt*SY + dt*GAMMAY + dt*DFMASK*BETAY;
+        Ustore[1] = Ustore[1] + dt * SX + dt * GAMMAX + dt * DFMASK * BETAX;
+        Ustore[2] = Ustore[2] + dt * SY + dt * GAMMAY + dt * DFMASK * BETAY;
 
-        ZF = VINF_[ndx]/(THETAS-THETA0);
+        ZF = VINF_[ndx] / (THETAS - THETA0);
 
-        //Calculating Infiltration
+        // Calculating Infiltration
 
-        INFL = c_dmin1(Ustore[0]-GEOFLOW_TINY, dt*KS*(ZF + HF + Ustore[0])/ZF);
+        INFL = c_dmin1(Ustore[0] - GEOFLOW_TINY, dt * KS * (ZF + HF + Ustore[0]) / ZF);
 
         VINF_[ndx] += INFL;
 
-        if (timeprops_ptr->iter > 10){
-            
-            Ustore[0]-=INFL;
-        } 
+        if (timeprops_ptr->iter > 10)
+        {
+
+            Ustore[0] -= INFL;
+        }
 
         // if (ndx == f_idx) printf("4. H = %.8lf\n",Ustore[0]);
 
-        //VINF_[ndx] += INFL;
-        //Ustore[0]-=INFL;
+        // VINF_[ndx] += INFL;
+        // Ustore[0]-=INFL;
 
         TOTM_[ndx] = 0;
         DEP_[ndx] = 0;
 
         double temp_height = Ustore[0];
 
-        for (i = 3; i < (NUM_STATE_VARS); i++){
+        for (i = 3; i < (NUM_STATE_VARS); i++)
+        {
 
             chtemp = Ustore[i];
-            CONC_[i-3][ndx] = Ustore[i];
+            CONC_[i - 3][ndx] = Ustore[i];
 
-            if (temp_height>=10*GEOFLOW_TINY){
+            if (temp_height >= 10 * GEOFLOW_TINY)
+            {
 
+                redetach = c_dmin1(M_[i - 3][ndx], dt * (E[1][i - 3] + E[3][i - 3]));
 
-                redetach = c_dmin1(M_[i-3][ndx],dt*(E[1][i-3]+E[3][i-3]));
+                Ustore[i] = exp(-VF_[i - 3][ndx] / Ustore[0] * 0.5 * dt) * Ustore[i];
 
-                Ustore[i] = exp(-VF_[i-3][ndx]/Ustore[0]*0.5*dt)*Ustore[i];
+                // Ustore[i] = Ustore[i] + dt*(E[0][i-3]+E[2][i-3] - VF_[i-3][ndx]*SED[i-3]) + redetach;
+                Ustore[i] = Ustore[i] + dt * (E[0][i - 3] + E[2][i - 3]) + redetach;
 
-                //Ustore[i] = Ustore[i] + dt*(E[0][i-3]+E[2][i-3] - VF_[i-3][ndx]*SED[i-3]) + redetach;
-                Ustore[i] = Ustore[i] + dt*(E[0][i-3]+E[2][i-3]) + redetach;
+                Ustore[i] = exp(-VF_[i - 3][ndx] / Ustore[0] * 0.5 * dt) * Ustore[i];
 
-                Ustore[i] = exp(-VF_[i-3][ndx]/Ustore[0]*0.5*dt)*Ustore[i];
+                M_[i - 3][ndx] = M_[i - 3][ndx] + dt * (E[0][i - 3] + E[2][i - 3]) - Ustore[i] + chtemp;
 
-                M_[i-3][ndx] = M_[i-3][ndx] + dt*(E[0][i-3]+E[2][i-3]) - Ustore[i] + chtemp;
-
-                TOTEROS_[ndx] -= (Ustore[i] - chtemp)/(rhos*(1-phi)); //Updating Topography Erosion is negative, Depostion is Postive
-
+                TOTEROS_[ndx] -= (Ustore[i] - chtemp) / (rhos * (1 - phi)); // Updating Topography Erosion is negative, Depostion is Postive
             }
 
-            Ustore[0]= Ustore[0] + (Ustore[i] - chtemp)/(rhos*(1-phi));           
+            Ustore[0] = Ustore[0] + (Ustore[i] - chtemp) / (rhos * (1 - phi));
 
-            TOTM_[ndx] += M_[i-3][ndx];
-            DEP_[ndx] += M_[i-3][ndx]/rhos;
+            TOTM_[ndx] += M_[i - 3][ndx];
+            DEP_[ndx] += M_[i - 3][ndx] / rhos;
         }
-        
+
         TOTSED_[ndx] = 0;
-        if (Ustore[0] > GEOFLOW_TINY){
-            for (i=3; i < (NUM_STATE_VARS); i++){
-                SED[i-3] = Ustore[i]/Ustore[0];
-                TOTSED_[ndx] += SED[i-3]/rhos;
+        if (Ustore[0] > GEOFLOW_TINY)
+        {
+            for (i = 3; i < (NUM_STATE_VARS); i++)
+            {
+                SED[i - 3] = Ustore[i] / Ustore[0];
+                TOTSED_[ndx] += SED[i - 3] / rhos;
             }
         }
-        else{
+        else
+        {
             Ustore[0] = GEOFLOW_TINY;
             Ustore[1] = 0;
             Ustore[2] = 0;
 
-            for(i=3 ; i < NUM_STATE_VARS; i++){
-
-                TOTEROS_[ndx] += (Ustore[i])/(rhos*(1-phi));
-                M_[i-3][ndx] = M_[i-3][ndx] + Ustore[i];
-                Ustore[i]=0;
-                SED[i-3]=0;
+            for (i = 3; i < NUM_STATE_VARS; i++)
+            {
+                TOTEROS_[ndx] += (Ustore[i]) / (rhos * (1 - phi));
+                M_[i - 3][ndx] = M_[i - 3][ndx] + Ustore[i];
+                Ustore[i] = 0;
+                SED[i - 3] = 0;
             }
         }
 
         // if (ndx == f_idx) printf("5. E1 = %.8lf\t E2 = %.8lf\t E3 = %.8lf\t E4=%.8lf\n",E[0][3],E[1][3],E[2][3],E[3][3]);
 
         // Implicit Friction Update (LeVeque, 2011)
-        if (MASK_[ndx] < 1) MANNING = 0.1;
-            else MANNING = ROUGHNESS;
+        if (MASK_[ndx] < 1)
+            MANNING = 0.1;
+        else
+            MANNING = ROUGHNESS;
 
-        if (Ustore[0] > GEOFLOW_TINY){
-            if (Ustore[0]<= hcfrict) MANNING = MANNING*pow(Ustore[0]/hcfrict, depthdependentexponent);
+        if (Ustore[0] > GEOFLOW_TINY)
+        {
+            if (Ustore[0] <= hcfrict)
+                MANNING = MANNING * pow(Ustore[0] / hcfrict, depthdependentexponent);
             // else MANNING = ROUGHNESS;
 
-            SF = MANNING*MANNING*g[2]*pow(Ustore[1]*Ustore[1]+Ustore[2]*Ustore[2],0.5)/pow(Ustore[0],2.333);
+            SF = MANNING * MANNING * g[2] * pow(Ustore[1] * Ustore[1] + Ustore[2] * Ustore[2], 0.5) / pow(Ustore[0], 2.333);
 
-            Ustore[1] = Ustore[1]/(1+dt*SF);
-            Ustore[2] = Ustore[2]/(1+dt*SF);
+            Ustore[1] = Ustore[1] / (1 + dt * SF);
+            Ustore[2] = Ustore[2] / (1 + dt * SF);
         }
 
-
-        for (i = 0; i < NUM_STATE_VARS; ++i) state_vars_[i][ndx]=Ustore[i];
+        for (i = 0; i < NUM_STATE_VARS; ++i)
+            state_vars_[i][ndx] = Ustore[i];
 
         // apply bc's
-        for(int j = 0; j < 4; j++)
-            if(neigh_proc_[j][ndx] == INIT)   // this is a boundary!
-                for(int k = 0; k < NUM_STATE_VARS; k++)
-                    state_vars_[k][ndx]=0.0;
-
+        for (int j = 0; j < 4; j++)
+            if (neigh_proc_[j][ndx] == INIT) // this is a boundary!
+                for (int k = 0; k < NUM_STATE_VARS; k++)
+                    state_vars_[k][ndx] = 0.0;
     }
     /*
      #pragma omp parallel for schedule(dynamic,TITAN2D_DINAMIC_CHUNK) \
@@ -3246,7 +3271,6 @@ void Integrator_TwoPhases_Coulomb::corrector()
     // printf("After  c1=%lf\tc2=%lf\tc3=%lf\n",state_vars_[3][f_idx],state_vars_[4][f_idx],state_vars_[5][f_idx]);
 
     index_max++;
-
 }
 void Integrator_TwoPhases_Coulomb::flowrecords()
 {
